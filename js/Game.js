@@ -119,11 +119,11 @@ function createLights() {
 ////////////////////////////////////////画一片大海//////////////////////////////////
 
 
-//首先定义一个大海对象
+//一个大海对象
 Sea = function(){
 
-    // 创建一个圆柱几何体
     // 参数为：顶面半径，底面半径，高度，半径分段，高度分段
+    //分段越多看起来越光滑
     var geom = new THREE.CylinderGeometry(600,600,800,40,10);
  
     // 在 x 轴旋转几何体
@@ -137,30 +137,216 @@ Sea = function(){
         shading:THREE.FlatShading,
     });
  
-    // 为了在 Three.js 创建一个物体，我们必须创建网格用来组合几何体和一些材质 
+    // 使用几何体和材质初始化mesh
     this.mesh = new THREE.Mesh(geom, mat);
  
-    // 允许大海对象接收阴影
+    //接收阴影
     this.mesh.receiveShadow = true; 
  }
  
- //实例化大海对象，并添加至场景
  var sea;
  
  function createSea(){
     sea = new Sea();
  
-    // 在场景底部，稍微推挤一下
+    // 在场景底部
     sea.mesh.position.y = -600;
  
-    // 添加大海的网格至场景
+    // 将mesh加入
     scene.add(sea.mesh);
  }
 
+////////////////////////////////////////画一些云，并把它们添加到天空里//////////////////////////////////
+
+Cloud = function(){
+
+    this.mesh = new THREE.Object3D();
+
+    //长宽高
+    var geom = new THREE.BoxGeometry(20,20,20);
+
+    var mat = new THREE.MeshPhongMaterial(
+        {
+            color:Colors.white,
+            transparent:true,
+            opacity:.8
+        }
+    );
+    
+    //一朵云由几个方块组成，这里设置为3-5块
+    var nBlocks = 3 + Math.floor(Math.random() * 3);
+    
+    for(var i = 0; i < nBlocks; i++){
+
+        var m = new THREE.Mesh(geom,mat);
+
+        m.position.x = i * 15; //横向偏移，棱长20的正方体取15
+        m.position.y = Math.random() * 10; //纵向偏移0-10
+        m.position.z = Math.random() * 10;
+
+        m.rotation.z = Math.random() * Math.PI * 2; //z轴（屏幕来看是顺逆时针）旋转0-2pi
+        m.rotation.y = Math.random() * Math.PI * 2;; //y轴，内外翻转
+
+        var s = 0.1 + Math.random() * 0.9;
+        //缩放
+        m.scale.set(s,s,s);
+
+        //自己是否投影和是否接受别人的投影
+        m.castShadow = true;
+        m.receiveShadow = true;
+
+        this.mesh.add(m);
+
+    }
+
+
+}
+
+Sky = function(){
+
+    this.mesh = new THREE.Object3D();
+
+    //画15-20片云
+    this.nClouds = 15 + Math.floor(Math.random() * 5);
+
+    //我们的飞机其实是绕着圈飞的
+    //所以云也是绕着圈长的
+    var stepAngle = Math.PI * 2 / this.nClouds;
+
+    for(var i = 0; i < this.nClouds;i++){
+
+        var cloud = new Cloud();
+        
+        var a = stepAngle * i;
+        var r = 750 + Math.random() * 200; //圆柱的半径是600
+
+        cloud.mesh.position.y = Math.sin(a) * r;
+        cloud.mesh.position.x = Math.cos(a) * r;
+        cloud.mesh.position.z = -400 - Math.random() * 400; //(-400,-800)，深度也随机
+
+        cloud.mesh.rotation.z = a + Math.PI/2;
+
+        var s = 1 + Math.random() * 2;
+        cloud.mesh.scale.set(s,s,s);
+
+        this.mesh.add(cloud.mesh);
+    }
+
+}
+
+var sky;
+
+function createSky(){
+    sky = new Sky();
+    sky.mesh.position.y = -600;
+    scene.add(sky.mesh);
+}
+
+////////////////////////////////////////画一架飞机//////////////////////////////////
+
+
+var Plane = function(){
+
+    this.mesh = new THREE.Object3D();
+
+    //机身
+    var bodyGeom = new THREE.BoxGeometry(60,50,50);
+    var bodyMat = new THREE.MeshPhongMaterial({
+        color: Colors.red,
+        shading: THREE.FlatShading
+    });
+    var body = new THREE.Mesh(bodyGeom,bodyMat);
+    body.castShadow = true;
+    body.receiveShadow = true;
+    this.mesh.add(body);
+
+    //引擎
+    var engineGeom = new THREE.BoxGeometry(20,50,50);
+    var engineMat = new THREE.MeshPhongMaterial(
+        {
+            color: Colors.white,
+            shading: THREE.FlatShading
+        }
+    );
+    var engine = new THREE.Mesh(engineGeom,engineMat);
+    engine.position.x = 40; //30/2 + 20/2
+    engine.castShadow = true;
+    engine.receiveShadow = true;
+    this.mesh.add(engine);
+
+    //机尾
+    var tailGeom = new THREE.BoxGeometry(15,20,5);
+    var tailMat = new THREE.MeshPhongMaterial(
+        {
+            color: Colors.red,
+            shading: THREE.FlatShading
+        }
+    );
+    var tail = new THREE.Mesh(tailGeom,tailMat);
+    tail.position.set(-35,25,0);
+    tail.castShadow = true;
+    tail.receiveShadow = true;
+    this.mesh.add(tail);
+
+    //机翼
+    var wingGeom = new THREE.BoxGeometry(40,8,150);
+    var wingMat = new THREE.MeshPhongMaterial(
+        {
+            color: Colors.red,
+            shading: THREE.FlatShading
+        }
+    );
+    var wing = new THREE.Mesh(wingGeom,wingMat);
+    wing.castShadow = true;
+    wing.receiveShadow = true;
+    this.mesh.add(wing);
+
+    //螺旋桨
+    var propellerGeom = new THREE.BoxGeometry(20,10,10);
+    var propellerMat = new THREE.MeshPhongMaterial(
+        {
+            color: Colors.brown,
+            shading: THREE.FlatShading
+        }
+    );
+    this.propeller = new THREE.Mesh(propellerGeom,propellerMat);
+    this.propeller.castShadow = true;
+    this.propeller.receiveShadow = true;
+
+    //螺旋桨叶
+    var bladeGeom = new THREE.BoxGeometry(1,100,20);
+    var bladeMat = new THREE.MeshPhongMaterial(
+        {
+            color: Colors.browndark,
+            shading: THREE.FlatShading
+        }
+    );
+    var blade = new THREE.Mesh(bladeGeom,bladeMat);
+    blade.position.x = 8;
+    blade.castShadow = true;
+    blade.receiveShadow = true;
+    
+    this.propeller.add(blade);
+    this.propeller.position.x = 50;
+    this.mesh.add(this.propeller);
+}
+
+
+var plane = new Plane();
+
+function createPlane(){
+
+    plane = new Plane();
+
+    plane.mesh.scale.set(0.25,0.25,0.25);
+    plane.mesh.position.y = 100;
+    scene.add(plane.mesh);
+
+}
 
 
 
-//初始化
+////////////////////////////////////////初始化//////////////////////////////////
 window.onload = function () {
 
     //同所有游戏引擎的场景
@@ -168,11 +354,11 @@ window.onload = function () {
     createLights();
     createSea();
     //游戏的主角
-    //createPlane();
+    createPlane();
 
     
 
-    //createSky();
+    createSky();
     //每帧调用
     loop();
 
@@ -182,6 +368,11 @@ function loop(){
 
     //每帧调用
     renderer.render(scene,camera);
+
+    //转起来
+    sky.mesh.rotation.z += 0.01;
+    sea.mesh.rotation.z += 0.005;
+    plane.propeller.rotation.x += 0.3;
 
     requestAnimationFrame(loop);
 }
