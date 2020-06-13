@@ -343,26 +343,58 @@ function createPlane(){
     scene.add(plane.mesh);
 
 }
+////////////////////////////////////////来点音乐//////////////////////////////////
+
+
+function initBgm(){
+    var bgm = document.getElementById("bgm");
+    bgm.play();
+}
 
 
 
 ////////////////////////////////////////初始化//////////////////////////////////
-window.onload = function () {
+window.onload = function(){
 
-    //同所有游戏引擎的场景
     createScene();
     createLights();
     createSea();
     //游戏的主角
     createPlane();
 
-    
-
     createSky();
-    //每帧调用
+
+    renderer.render(scene,camera);
+
+    //等待游戏初始化
+    document.getElementById('start-button').addEventListener('click',initGame);
+
+
+}
+
+
+
+
+function initGame(){
+
+    document.getElementById('world').style.filter = 'none';
+
+    document.getElementById('pre-title').style.opacity = 0;
+    document.getElementById('pre-desc').style.opacity = 0;
+    document.getElementById('pre-intro').style.opacity = 0;
+    document.getElementById('start-button').style.opacity = 0;
+    document.getElementById('pre-bottom').style.opacity = 0;
+
+    setTimeout(function(){document.getElementById('loader').style.display = 'none';},2000);
+
+
+    initBgm();
+
     loop();
 
 }
+
+
 
 function loop(){
 
