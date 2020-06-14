@@ -1,0 +1,44 @@
+#wave{
+    position: absolute;
+    left: 30%;
+    top:3%;
+
+    width: 40%;
+    height: 4%;
+    z-index : 80;
+}
+
+#progress{
+    position: absolute;
+    left: 30%;
+    top:10%;
+    background-color:white;
+    width: 40%;
+    height: 1px;
+    z-index : 80;
+}
+
+#cursor{
+    position: absolute;
+    left: 30%;
+    top:9%;
+    background-color:white;
+    width: 5px;
+    height: 15px;
+    z-index : 80;
+}
+
+#bgm-name{
+    position: absolute;
+    left: 40%;
+    top:12%;
+    
+    width: 20%;
+
+    color:white;
+    font-size: 12px;
+    letter-spacing: 8px;
+    text-align: center;
+
+    z-index : 80;
+}

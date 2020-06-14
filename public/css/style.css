@@ -119,6 +119,6 @@ body{
     height:100%;
     overflow: hidden;
     background: linear-gradient(#e4e0ba, #f7d9aa);
-    filter:blur(5px);
+    /*filter:blur(5px);*/
     transition: 2s;
 }
