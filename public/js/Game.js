@@ -35,12 +35,72 @@ var game;
 
 function resetGame() {
     game = {
-        speed: 0.01,
+        speed: 0, //场景旋转速度
 
-        status: 'welcome'
+        status: 'welcome',
+
+        minHeight: 25,
+        maxHeight: 175,
+
+        coinLength:5,
+
+        coinSpawnInterv: 1800, //每隔多少秒生成coin
+
+        bpm: 600, //毫秒
+
+        currentTime: 0
 
 
     }
+}
+
+//变速
+function updateBeat() {
+    if (game.currentTime < 32) {
+
+        //1阶段，1倍速
+        if (game.speed < 0.015) game.speed += 0.0001;
+
+    } else if (game.currentTime >= 32 && game.currentTime <= 51) {
+
+        //2阶段,2倍速
+        if (game.speed < 0.03) game.speed += 0.0001;
+        game.coinSpawnInterv = 900;
+
+    } else if (game.currentTime > 51 && game.currentTime <= 70) {
+
+        //3阶段,1.5倍速
+        if (game.speed > 0.02) game.speed -= 0.0001;
+        game.coinSpawnInterv = 1800;
+
+
+    } else if (game.currentTime > 70 && game.currentTime <= 99) {
+
+        //4阶段,1倍速
+        if (game.speed > 0.015) game.speed -= 0.0001;
+
+
+
+    } else if (game.currentTime > 99 && game.currentTime <= 138) {
+
+        //5阶段,2.5倍速
+        if (game.speed < 0.03) game.speed += 0.0001;
+
+
+    } else {
+
+        //6阶段,1倍速
+        if (game.speed > 0) game.speed -= 0.0001;
+
+        if (game.minHeight < 100) game.minHeight += 0.4;
+        if (game.maxHeight > 100) game.maxHeight -= 0.4;
+
+        if(plane.mesh.position.x < width)plane.mesh.position.x += 0.4;
+        
+
+    }
+
+
 }
 
 ////////////////////////////////////////场景基础//////////////////////////////////
@@ -144,6 +204,25 @@ Sea = function () {
 
     // 在 x 轴旋转几何体
     geom.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
+    geom.mergeVertices(); //不合并几何体会裂开
+
+    var length = geom.vertices.length;
+
+    this.waves = []; //字典数组，下标代表点的编号
+
+    for (var i = 0; i < length; i++) {
+
+        var v = geom.vertices[i];
+
+        this.waves.push({
+            x: v.x,
+            y: v.y,
+            z: v.z,
+            ang: Math.random() * Math.PI * 2, //随机转一个角度
+            amp: 5 + Math.random() * 15,
+            speed: game.speed + Math.random() * game.speed * 2
+        });
+    }
 
     // 创建材质
     var mat = new THREE.MeshPhongMaterial({
@@ -158,6 +237,28 @@ Sea = function () {
 
     //接收阴影
     this.mesh.receiveShadow = true;
+}
+
+Sea.prototype.updateWaves = function () {
+
+    var verts = this.mesh.geometry.vertices;
+    var l = verts.length;
+
+    for (var i = 0; i < l; i++) {
+
+        var v = verts[i];
+
+        var vWave = this.waves[i];
+
+        v.x = vWave.x + Math.cos(vWave.ang) * vWave.amp;
+        v.y = vWave.y + Math.sin(vWave.ang) * vWave.amp;
+
+        vWave.ang += vWave.speed;
+    }
+
+    this.mesh.geometry.verticesNeedUpdate = true; //防止渲染器忽略
+
+    sea.mesh.rotation.z += game.speed / 2;
 }
 
 var sea;
@@ -258,6 +359,131 @@ function createSky() {
 
 ////////////////////////////////////////画一架飞机//////////////////////////////////
 
+
+var Pilot = function () {
+
+    this.mesh = new THREE.Object3D();
+    this.mesh.name = 'pilot';
+    this.angleHairs = 0;
+    this.angleHead = 0; //头绕z轴旋转
+
+    //身体
+    var bodyGeom = new THREE.BoxGeometry(15, 15, 15);
+    var bodyMat = new THREE.MeshPhongMaterial({
+        color: Colors.brown,
+        shading: THREE.FlatShading
+    });
+    var body = new THREE.Mesh(bodyGeom, bodyMat);
+    body.position.set(2, -12, 0);
+
+    this.mesh.add(body);
+
+    //脸
+    var faceGeom = new THREE.BoxGeometry(10, 10, 10);
+    var faceMat = new THREE.MeshLambertMaterial({
+        color: Colors.pink
+    });
+    var face = new THREE.Mesh(faceGeom, faceMat);
+    this.mesh.add(face);
+
+    //头发
+    var hairGeom = new THREE.BoxGeometry(4, 4, 4);
+    var hairMat = new THREE.MeshLambertMaterial({
+        color: Colors.brown
+    });
+    var hair = new THREE.Mesh(hairGeom, hairMat);
+    hair.geometry.applyMatrix(new THREE.Matrix4().makeTranslation(0, 2, 0));
+
+    var hairs = new THREE.Object3D();
+    this.hairsTop = new THREE.Object3D();
+
+    //3x4的平板
+    for (var i = 0; i < 12; i++) {
+        var h = hair.clone();
+        var col = i % 3;
+        var row = Math.floor(i / 3);
+        var startPosZ = -4;
+        var startPosX = -4;
+        h.position.set(startPosX + row * 4, 0, startPosZ + col * 4);
+        h.geometry.applyMatrix(new THREE.Matrix4().makeScale(1, 1, 1));
+        this.hairsTop.add(h);
+    }
+    hairs.add(this.hairsTop);
+
+    //侧边和后面的头发
+
+    var hairSideGeom = new THREE.BoxGeometry(12, 4, 2);
+    hairSideGeom.applyMatrix(new THREE.Matrix4().makeTranslation(-6, 0, 0));
+    var hairSideR = new THREE.Mesh(hairSideGeom, hairMat);
+    var hairSideL = hairSideR.clone();
+    hairSideR.position.set(8, -2, 6);
+    hairSideL.position.set(8, -2, -6);
+    hairs.add(hairSideR);
+    hairs.add(hairSideL);
+
+    var hairBackGeom = new THREE.BoxGeometry(2, 8, 10);
+    var hairBack = new THREE.Mesh(hairBackGeom, hairMat);
+    hairBack.position.set(-1, -4, 0)
+    hairs.add(hairBack);
+    hairs.position.set(-5, 5, 0);
+
+    this.mesh.add(hairs);
+
+    //眼镜和耳朵
+
+    var glassGeom = new THREE.BoxGeometry(5, 5, 5);
+    var glassMat = new THREE.MeshLambertMaterial({
+        color: Colors.brown
+    });
+    var glassR = new THREE.Mesh(glassGeom, glassMat);
+    glassR.position.set(6, 0, 3);
+    var glassL = glassR.clone();
+    glassL.position.z = -glassR.position.z
+
+    var glassAGeom = new THREE.BoxGeometry(11, 1, 11);
+    var glassA = new THREE.Mesh(glassAGeom, glassMat);
+    this.mesh.add(glassR);
+    this.mesh.add(glassL);
+    this.mesh.add(glassA);
+
+    var earGeom = new THREE.BoxGeometry(2, 3, 2);
+    var earL = new THREE.Mesh(earGeom, faceMat);
+    earL.position.set(0, 0, -6);
+    var earR = earL.clone();
+    earR.position.set(0, 0, 6);
+    this.mesh.add(earL);
+    this.mesh.add(earR);
+
+}
+
+Pilot.prototype.updatePilot = function () {
+
+    var hairs = this.hairsTop.children;
+
+    var l = hairs.length;
+    for (var i = 0; i < l; i++) {
+        var h = hairs[i];
+        h.scale.y = .75 + Math.cos(this.angleHairs + i / 3) * .25;
+    }
+    this.angleHairs += game.speed * 40;
+
+    if (game.currentTime * 1000 >= game.bpm) {
+
+        var beat = Math.floor(game.currentTime * 1000) % game.bpm;
+
+        if (beat <= 200) {
+            this.mesh.rotation.z -= 0.02;
+        } else if (beat <= 400) {
+            this.mesh.rotation.z += 0.02;
+        }
+
+        if (this.mesh.rotation.z >= 0.4) this.mesh.rotation.z = 0.4;
+        if (this.mesh.rotation.z <= -0.4) this.mesh.rotation.z = -0.4;
+
+    }
+
+
+}
 
 var Plane = function () {
 
@@ -360,10 +586,17 @@ var Plane = function () {
     this.propeller.add(blade2);
     this.propeller.position.x = 50;
     this.mesh.add(this.propeller);
+
+    this.pilot = new Pilot();
+    this.pilot.mesh.position.set(-5, 28, 0);
+    this.mesh.add(this.pilot.mesh);
+
+    this.mesh.castShadow = true;
+    this.mesh.receiveShadow = true;
 }
 
 
-var plane = new Plane();
+var plane;
 
 function createPlane() {
 
@@ -374,6 +607,219 @@ function createPlane() {
     scene.add(plane.mesh);
 
 }
+////////////////////////////////////////来点粒子//////////////////////////////////
+
+
+Particle = function () {
+
+    var geom = new THREE.TetrahedronGeometry(3, 0);
+    var mat = new THREE.MeshPhongMaterial({
+        color: 0x009999,
+        shininess: 0,
+        specular: 0xffffff,
+        shading: THREE.FlatShading
+    });
+    this.mesh = new THREE.Mesh(geom, mat);
+
+}
+
+Particle.prototype.explode = function (pos, color, scale) {
+
+    var _this = this;
+    var _p = this.mesh.parent;
+    this.mesh.material.color = new THREE.Color(color);
+    this.mesh.material.needsUpdate = true;
+    this.mesh.scale.set(scale, scale, scale);
+    var targetX = pos.x + (-1 + Math.random() * 2) * 50; //扩散效果
+    var targetY = pos.y + (-1 + Math.random() * 2) * 50;
+    var speed = .6 + Math.random() * .2;
+
+    TweenMax.to(this.mesh.rotation, speed, {
+        x: Math.random() * 12,
+        y: Math.random() * 12
+    });
+    TweenMax.to(this.mesh.scale, speed, {
+        x: .1,
+        y: .1,
+        z: .1
+    });
+    TweenMax.to(this.mesh.position, speed, {
+        x: targetX,
+        y: targetY,
+        delay: Math.random() * .1,
+        ease: Power2.easeOut,
+        onComplete: function () {
+            if (_p) _p.remove(_this.mesh); //删掉它
+            _this.mesh.scale.set(1, 1, 1);
+        }
+    });
+}
+
+ParticlesHolder = function () {
+    this.mesh = new THREE.Object3D();
+}
+
+ParticlesHolder.prototype.spawnParticles = function (pos, density, color,scale) {
+
+    var nPArticles = density;
+    for (var i = 0; i < nPArticles; i++) {
+       
+        var particle = new Particle();
+        
+        this.mesh.add(particle.mesh);
+        particle.mesh.visible = true;
+        particle.mesh.position.y = pos.y;
+        particle.mesh.position.x = pos.x;
+        particle.explode(pos, color, scale);
+    }
+
+}
+
+var particlesHolder;
+
+function createParticlesHolder(){
+    particlesHolder = new ParticlesHolder();
+    scene.add(particlesHolder.mesh);
+}
+
+////////////////////////////////////////来点硬币//////////////////////////////////
+
+
+Coin = function () {
+
+    var geom = new THREE.TetrahedronGeometry(4, 0);
+    var mat = new THREE.MeshPhongMaterial({
+        color: 0x009999,
+        shininess: 0,
+        specular: 0xffffff,
+        shading: THREE.FlatShading
+    });
+
+    this.mesh = new THREE.Mesh(geom, mat);
+    this.mesh.castShadow = true;
+    this.angle = 0; //已经旋转的角度
+    this.dist = 0;
+
+}
+
+//一群硬币
+CoinsHolder = function () {
+
+    this.mesh = new THREE.Object3D();
+    this.coinInUse = [];
+
+}
+
+CoinsHolder.prototype.spawnCoins = function () {
+
+    var nCoins = game.coinLength + Math.floor(Math.random() * 10);
+
+    //不要生成到吃不到的地方
+    var d = 600 + game.minHeight + (game.maxHeight - game.minHeight) * Math.random();
+
+    var amplitude = 10 + Math.round(Math.random() * 5);
+
+    //最后一波
+    if(game.coinLength == 300){
+        d = 600 + (game.minHeight + game.maxHeight) / 2;
+        amplitude = 15;
+    }
+
+    for (var i = 0; i < nCoins; i++) {
+
+        var coin = new Coin();
+        this.mesh.add(coin.mesh);
+        this.coinInUse.push(coin);
+
+        coin.angle = -(i * 0.02);
+        coin.distance = d + Math.cos(i * 0.5) * amplitude;
+
+        coin.mesh.position.y = -600 + coin.distance * Math.sin(coin.angle);
+        coin.mesh.position.x = coin.distance * Math.cos(coin.angle);
+    }
+
+}
+
+CoinsHolder.prototype.rotateCoins = function () {
+
+    for (var i = 0; i < this.coinInUse.length; i++) {
+
+        var coin = this.coinInUse[i];
+        if (coin.exploding) continue;
+        coin.angle += game.speed / 5;
+
+        coin.mesh.position.y = -600 + coin.distance * Math.sin(coin.angle);
+        coin.mesh.position.x = coin.distance * Math.cos(coin.angle);
+        coin.mesh.rotation.z += Math.random() * .1;
+        coin.mesh.rotation.y += Math.random() * .1;
+
+        var diffPos = plane.mesh.position.clone().sub(coin.mesh.position.clone());
+        var d = diffPos.length();
+
+        if (d < 15) {
+            this.coinInUse.splice(i, 1)[0];
+            this.mesh.remove(coin.mesh);
+            particlesHolder.spawnParticles(coin.mesh.position.clone(), 5, 0x009999, .8);
+
+            var aud = document.createElement("AUDIO");
+            aud.src = 'sound/coin.mp3';
+            aud.play();
+        }
+
+        if (coin.angle > Math.PI) {
+            this.coinInUse.splice(i, 1)[0];
+            this.mesh.remove(coin.mesh);
+            i--;
+        }
+
+    }
+
+}
+
+
+var coinsHolder;
+
+function createCoinHolder() {
+
+    coinsHolder = new CoinsHolder();
+    scene.add(coinsHolder.mesh);
+
+}
+
+var lastSpawnTime = 0;
+var finalSpawn = 0;
+
+function updateCoin() {
+
+    if (game.currentTime > 3 && game.currentTime <= 99 && game.currentTime - lastSpawnTime > (game.coinSpawnInterv / 1000) && Math.floor(game.currentTime * 1000) % game.coinSpawnInterv <= 100) {
+        coinsHolder.spawnCoins();
+        lastSpawnTime = game.currentTime;
+    }
+
+    if(game.currentTime > 99 && game.currentTime < 138 && game.currentTime - finalSpawn > 20){
+        
+        finalSpawn = game.currentTime;
+        game.coinLength = 300;
+        coinsHolder.spawnCoins();
+  
+
+    }   
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ////////////////////////////////////////来点音乐//////////////////////////////////
 
 
@@ -383,16 +829,17 @@ function initBgm() {
     var bgm = document.getElementById("bgm");
     var duration = bgm.duration;
 
+    //onsole.log(duration); //单位是秒
 
     var wave = document.getElementById('wave');
     var context = wave.getContext('2d');
 
-
-
     var waveWidth = wave.width;
     var waveHeight = wave.height;
 
-    var AudCtx = new AudioContext();
+    if (window.AudioContext) var AudCtx = new AudioContext();
+    else var AudCtx = new webkitAudioContext();
+
     var src = AudCtx.createMediaElementSource(bgm);
     var analyser = AudCtx.createAnalyser();
 
@@ -407,34 +854,34 @@ function initBgm() {
 
     var dataArray = new Uint8Array(bufferLength);
 
-    function renderWave(){
+    function renderWave() {
 
         requestAnimationFrame(renderWave);
 
-        var currentTime = bgm.currentTime;
-        var percentLeft = normalize(currentTime,0,duration,30,70);
+        game.currentTime = bgm.currentTime;
+        var percentLeft = normalize(game.currentTime, 0, duration, 30, 70);
 
         cursor.style.left = percentLeft + '%';
 
         context.fillStyle = '#e4e0ba';
-        context.fillRect(0, 0, waveWidth,waveHeight);//画布拓展全屏,动态调整
+        context.fillRect(0, 0, waveWidth, waveHeight); //画布拓展全屏,动态调整
 
         analyser.getByteFrequencyData(dataArray);
 
         var curPos = 0;
 
-        for(var i = 0; i < bufferLength;i++){
+        for (var i = 0; i < bufferLength; i++) {
             var data = dataArray[i];
 
-            var percentV = data / 255;//纵向比例
-            var percentH = i / bufferLength;//横向比例
+            var percentV = data / 255; //纵向比例
+            var percentH = i / bufferLength; //横向比例
 
-             barHeight = waveHeight * percentV;
+            barHeight = waveHeight * percentV;
 
-             context.fillStyle = "white";
-             context.fillRect(curPos, waveHeight - barHeight, barWidth, barHeight);
+            context.fillStyle = "white";
+            context.fillRect(curPos, waveHeight - barHeight, barWidth, barHeight);
 
-             curPos += barWidth + 2;
+            curPos += barWidth + 2;
         }
     }
 
@@ -464,7 +911,7 @@ function handleMouseMove(event) {
 
 function updatePlane() {
 
-    var targetY = normalize(mousePos.y, -.75, .75, 25, 175);
+    var targetY = normalize(mousePos.y, -.75, .75, game.minHeight, game.maxHeight);
     var targetX = normalize(mousePos.x, -.75, .75, -100, 100);
 
     // 在每帧通过添加剩余距离的一小部分的值移动飞机
@@ -475,6 +922,8 @@ function updatePlane() {
     plane.mesh.rotation.x = (plane.mesh.position.y - targetY) * 0.0064;
 
     plane.propeller.rotation.x += 0.3;
+
+    plane.pilot.updatePilot();
 
 }
 
@@ -490,7 +939,11 @@ window.onload = function () {
     //游戏的主角
     createPlane();
 
+    createCoinHolder();
+    createParticlesHolder();
+
     createSky();
+    sea.updateWaves();
 
     renderer.render(scene, camera);
 
@@ -541,10 +994,15 @@ function loop() {
 
     //转起来
     sky.mesh.rotation.z += game.speed;
-    sea.mesh.rotation.z += game.speed / 2;
+    sea.updateWaves();
 
     //更新飞机位置和螺旋桨　
     updatePlane();
+
+    updateBeat();
+
+    updateCoin();
+    coinsHolder.rotateCoins();
 
     requestAnimationFrame(loop);
 }
