@@ -41,12 +41,24 @@ function resetGame() {
 
         minHeight: 25,
         maxHeight: 175,
+        minFront: -50,
+        maxFront: 50,
 
-        coinLength:5,
+        collisionSpeedX: 0,
+        collisionSpeedY: 0,
+        collisionPosX: 0,
+        collisionPosY: 0,
+
+        curBeats: 0,
+        curPoint: 0,
+
+        coinLength: 5,
 
         coinSpawnInterv: 1800, //每隔多少秒生成coin
 
         bpm: 600, //毫秒
+
+        stage: 1,
 
         currentTime: 0
 
@@ -60,24 +72,28 @@ function updateBeat() {
 
         //1阶段，1倍速
         if (game.speed < 0.015) game.speed += 0.0001;
+        game.stage = 1;
 
     } else if (game.currentTime >= 32 && game.currentTime <= 51) {
 
         //2阶段,2倍速
         if (game.speed < 0.03) game.speed += 0.0001;
         game.coinSpawnInterv = 900;
+        game.stage = 2;
 
     } else if (game.currentTime > 51 && game.currentTime <= 70) {
 
         //3阶段,1.5倍速
         if (game.speed > 0.02) game.speed -= 0.0001;
         game.coinSpawnInterv = 1800;
+        game.stage = 3;
 
 
     } else if (game.currentTime > 70 && game.currentTime <= 99) {
 
         //4阶段,1倍速
         if (game.speed > 0.015) game.speed -= 0.0001;
+        game.stage = 4;
 
 
 
@@ -85,6 +101,7 @@ function updateBeat() {
 
         //5阶段,2.5倍速
         if (game.speed < 0.03) game.speed += 0.0001;
+        game.stage = 5;
 
 
     } else {
@@ -95,8 +112,11 @@ function updateBeat() {
         if (game.minHeight < 100) game.minHeight += 0.4;
         if (game.maxHeight > 100) game.maxHeight -= 0.4;
 
-        if(plane.mesh.position.x < width)plane.mesh.position.x += 0.4;
-        
+        if (game.minFront < width && game.minFront < game.maxFront) game.minFront += 0.8;
+        if (game.maxFront < width) game.maxFront += 0.5;
+
+        game.stage = 6;
+
 
     }
 
@@ -659,13 +679,13 @@ ParticlesHolder = function () {
     this.mesh = new THREE.Object3D();
 }
 
-ParticlesHolder.prototype.spawnParticles = function (pos, density, color,scale) {
+ParticlesHolder.prototype.spawnParticles = function (pos, density, color, scale) {
 
     var nPArticles = density;
     for (var i = 0; i < nPArticles; i++) {
-       
+
         var particle = new Particle();
-        
+
         this.mesh.add(particle.mesh);
         particle.mesh.visible = true;
         particle.mesh.position.y = pos.y;
@@ -677,7 +697,7 @@ ParticlesHolder.prototype.spawnParticles = function (pos, density, color,scale) 
 
 var particlesHolder;
 
-function createParticlesHolder(){
+function createParticlesHolder() {
     particlesHolder = new ParticlesHolder();
     scene.add(particlesHolder.mesh);
 }
@@ -720,7 +740,7 @@ CoinsHolder.prototype.spawnCoins = function () {
     var amplitude = 10 + Math.round(Math.random() * 5);
 
     //最后一波
-    if(game.coinLength == 300){
+    if (game.coinLength == 120) {
         d = 600 + (game.minHeight + game.maxHeight) / 2;
         amplitude = 15;
     }
@@ -761,6 +781,8 @@ CoinsHolder.prototype.rotateCoins = function () {
             this.mesh.remove(coin.mesh);
             particlesHolder.spawnParticles(coin.mesh.position.clone(), 5, 0x009999, .8);
 
+            game.curPoint += 5 + Math.floor(Math.random() * 5);
+
             var aud = document.createElement("AUDIO");
             aud.src = 'sound/coin.mp3';
             aud.play();
@@ -796,27 +818,137 @@ function updateCoin() {
         lastSpawnTime = game.currentTime;
     }
 
-    if(game.currentTime > 99 && game.currentTime < 138 && game.currentTime - finalSpawn > 20){
-        
-        finalSpawn = game.currentTime;
-        game.coinLength = 300;
-        coinsHolder.spawnCoins();
-  
+    if (game.currentTime > 99 && game.currentTime < 130 && game.currentTime - finalSpawn > 8) {
 
-    }   
+        finalSpawn = game.currentTime;
+        game.coinLength = 120;
+        coinsHolder.spawnCoins();
+
+
+    }
+
+}
+////////////////////////////////////////来点敌人//////////////////////////////////
+
+Enemy = function () {
+    var geom = new THREE.TetrahedronGeometry(4, 2);
+    var mat = new THREE.MeshPhongMaterial({
+        color: Colors.red,
+        shininess: 0,
+        specular: 0xffffff,
+        shading: THREE.FlatShading
+    });
+    this.mesh = new THREE.Mesh(geom, mat);
+    this.mesh.castShadow = true;
+    this.angle = 0;
+    this.dist = 0;
+}
+
+EnemyHolder = function () {
+    this.mesh = new THREE.Object3D();
+    this.enemyInUse = []; //方便遍历
+}
+
+EnemyHolder.prototype.spawnEnemy = function () {
+
+    var stageEnemy = {
+        1: 4,
+        2: 8,
+        3: 6,
+        4: 4,
+        5: 10,
+        6: 0
+    };
+    var nEnemy = stageEnemy[game.stage];
+
+    for (var i = 0; i < nEnemy; i++) {
+        var enemy = new Enemy();
+        enemy.angle = -(i * 0.1) + 1.2;
+        enemy.distance = 600 + game.minHeight + (game.maxHeight - game.minHeight) * Math.random();
+        enemy.mesh.position.y = -600 + Math.sin(enemy.angle) * enemy.distance;
+        enemy.mesh.position.x = Math.cos(enemy.angle) * enemy.distance;
+
+        this.mesh.add(enemy.mesh);
+        this.enemyInUse.push(enemy);
+    }
 
 }
 
+EnemyHolder.prototype.rotateEnemy = function () {
+
+    for (var i = 0; i < this.enemyInUse.length; i++) {
+
+        var enemy = this.enemyInUse[i];
+        enemy.angle += game.speed / (3 + Math.random());
+
+        enemy.mesh.position.y = -600 + Math.sin(enemy.angle) * enemy.distance;
+        enemy.mesh.position.x = Math.cos(enemy.angle) * enemy.distance;
+        enemy.mesh.rotation.z += Math.random() * .1;
+        enemy.mesh.rotation.y += Math.random() * .1;
+
+        var diffPos = plane.mesh.position.clone().sub(enemy.mesh.position.clone());
+        var d = diffPos.length();
+
+        if (d < 15) {
+            particlesHolder.spawnParticles(enemy.mesh.position.clone(), 15, Colors.red, 1);
+            this.enemyInUse.splice(i, 1)[0];
+            this.mesh.remove(enemy.mesh);
+
+            game.collisionSpeedX = 100 * diffPos.x / d;
+            game.collisionSpeedY = 100 * diffPos.y / d;
+
+            game.curPoint -= 50;
+
+            i--;
+        }
+
+        if (enemy.angle > Math.PI) {
+            this.enemyInUse.splice(i, 1)[0];
+            this.mesh.remove(enemy.mesh);
+            i--;
+        }
+
+    }
+}
+
+EnemyHolder.prototype.destroyAllEnemy = function () {
+
+    var aud = document.createElement("AUDIO");
+    aud.src = 'sound/destroy.mp3';
+    aud.play();
+
+    game.curPoint += 50;
+
+    for (var i = 0; i < this.enemyInUse.length; i++) {
+
+        enemy = this.enemyInUse[i];
+        particlesHolder.spawnParticles(enemy.mesh.position.clone(), 15, Colors.red, 1);
+        this.enemyInUse.splice(i, 1)[0];
+        this.mesh.remove(enemy.mesh);
+        i--;
 
 
+    }
 
+}
 
+var enemyHolder;
 
+function createEnemyHolder() {
+    enemyHolder = new EnemyHolder();
+    scene.add(enemyHolder.mesh);
+}
 
+var lastEnemyTime = 0;
 
+function updateEnemy() {
 
+    if (game.currentTime > 3 && game.currentTime <= 130 && game.currentTime - lastEnemyTime > (game.coinSpawnInterv / 1000) && Math.floor(game.currentTime * 1000) % game.coinSpawnInterv <= 100) {
+        enemyHolder.spawnEnemy();
+        lastEnemyTime = game.currentTime;
+    }
 
-
+}
 
 
 
@@ -909,13 +1041,87 @@ function handleMouseMove(event) {
 
 }
 
+
+function handleKeyPress() {
+
+    if (game.currentTime > 138) return;
+
+    var stageEnergy = {
+        1: 4,
+        2: 2,
+        3: 3,
+        4: 4,
+        5: 1,
+        6: 4
+    };
+
+    var beat = Math.floor(game.currentTime * 1000) % game.bpm;
+
+    //在拍子上
+    if (beat <= 200 || beat >= game.bpm - 200) {
+
+        game.curPoint += 10;
+
+        if (++game.curBeats >= stageEnergy[game.stage]) {
+            game.curBeats = 0;
+            enemyHolder.destroyAllEnemy();
+
+        }
+    } else {
+        game.curPoint -= 200;
+    }
+
+
+}
+
+function updateUI() {
+
+    var beatArea = document.getElementById('beat-area');
+
+    beatArea.innerHTML = '';
+
+    var bar;
+
+    if(game.stage == 1 || game.stage == 4)bar = '<div class="beat-bar-4"></div>';
+    if(game.stage == 2)bar = '<div class="beat-bar-2"></div>';
+    if(game.stage == 3)bar = '<div class="beat-bar-3"></div>';
+    if(game.stage == 5)beatArea.innerHTML = '<div class="beat-bar-1">FEVER!</div>';
+
+    for (var i = 0; i < game.curBeats; i++) {
+        beatArea.innerHTML += bar;
+    }
+
+
+    var scoreEl = document.getElementById('point');
+    var curScore = parseInt(scoreEl.innerHTML);
+
+    var targetScore = game.curPoint;
+
+    curScore += Math.floor((targetScore - curScore) / 5);
+
+    scoreEl.innerHTML = curScore;
+
+}
+
 function updatePlane() {
 
     var targetY = normalize(mousePos.y, -.75, .75, game.minHeight, game.maxHeight);
-    var targetX = normalize(mousePos.x, -.75, .75, -100, 100);
+    var targetX = normalize(mousePos.x, -.75, .75, game.minFront, game.maxFront);
+
+    //碰撞
+    game.collisionPosX += game.collisionSpeedX;
+    targetX += game.collisionPosX;
+    game.collisionPosY += game.collisionSpeedY;
+    targetY += game.collisionPosY;
+
+    game.collisionSpeedX += (0 - game.collisionSpeedX) * 0.5;
+    game.collisionPosX += (0 - game.collisionPosX) * 0.2;
+    game.collisionSpeedY += (0 - game.collisionSpeedY) * 0.5;
+    game.collisionPosY += (0 - game.collisionPosY) * 0.2;
 
     // 在每帧通过添加剩余距离的一小部分的值移动飞机
     plane.mesh.position.y += (targetY - plane.mesh.position.y) * 0.1;
+    plane.mesh.position.x += (targetX - plane.mesh.position.x) * 0.1;
 
     // 剩余的距离按比例转动飞机
     plane.mesh.rotation.z = (targetY - plane.mesh.position.y) * 0.0128;
@@ -940,6 +1146,7 @@ window.onload = function () {
     createPlane();
 
     createCoinHolder();
+    createEnemyHolder();
     createParticlesHolder();
 
     createSky();
@@ -977,6 +1184,46 @@ function initGame() {
 
     //加载监视函数
     document.addEventListener('mousemove', handleMouseMove, false);
+    document.addEventListener('keyup', handleKeyPress, false);
+
+    //谢幕
+    setTimeout(function () {
+
+        $('#thank').animate({
+            opacity: 1,
+            top: '30%'
+        }, 2000);
+
+    }, 140000);
+
+    setTimeout(function () {
+
+        $('#thank').animate({
+            opacity: 0,
+            top: '25%'
+        }, 2000);
+
+    }, 144000);
+
+    setTimeout(function () {
+
+        $('#logo').animate({
+            opacity: 1,
+            top: '35%'
+        }, 2000);
+
+
+    }, 146000);
+
+    setTimeout(function () {
+
+        $('#logo').animate({
+            opacity: 0,
+            top: '30%'
+        }, 'slow');
+
+
+    }, 155000)
 
 
     initBgm();
@@ -1001,8 +1248,13 @@ function loop() {
 
     updateBeat();
 
+    updateUI();
+
     updateCoin();
     coinsHolder.rotateCoins();
+
+    updateEnemy();
+    enemyHolder.rotateEnemy();
 
     requestAnimationFrame(loop);
 }
