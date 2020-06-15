@@ -1071,7 +1071,26 @@ function handleKeyPress() {
         game.curPoint -= 200;
     }
 
+}
 
+function handleSubmit(){
+
+    var username = $('username').value;
+    var pwd = $('password').value;
+    var score = game.curPoint;
+    var suggest = $('suggest').value;
+
+    var data = {
+        'account':username,
+        'passwd':pwd,
+        'suggestion':suggest,
+        'point':score
+    }
+
+    $.post('api/postGameResult',data,function(){
+        alert('注册成功');
+        window.location.reload();
+    });
 }
 
 function updateUI() {
@@ -1080,7 +1099,7 @@ function updateUI() {
 
     beatArea.innerHTML = '';
 
-    var bar;
+    var bar = '';
 
     if(game.stage == 1 || game.stage == 4)bar = '<div class="beat-bar-4"></div>';
     if(game.stage == 2)bar = '<div class="beat-bar-2"></div>';
@@ -1220,10 +1239,22 @@ function initGame() {
         $('#logo').animate({
             opacity: 0,
             top: '30%'
-        }, 'slow');
+        }, 2000);
 
 
-    }, 155000)
+    }, 155000);
+
+    setTimeout(function () {
+
+
+        $('#feedback').fadeIn();
+
+        document.getElementById('world').style.filter = 'blur(5px)';
+        document.getElementById('score').value = game.curPoint;
+
+        document.getElementById('submit').addEventListener('click',handleSubmit,false);
+
+    }, 158000);
 
 
     initBgm();

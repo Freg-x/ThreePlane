@@ -163,3 +163,140 @@
     font-size: 18px;
     letter-spacing: 3px;
 }
+
+#feedback{
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index:100;
+
+    
+    display: none;
+
+}
+
+
+.feedback-title{
+
+    position: absolute;
+    color:white;
+    font-size: 36px;
+    font-family: 'Playfair';
+    letter-spacing: 1px;
+    width: 100%;
+    text-align: center;
+    top:18%;
+    z-index: 100;
+    transition: 2s; 
+
+}
+
+
+.feedback-desc{
+
+    position: absolute;
+    color:#f25346;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    width: 100%;
+    text-align: center;
+    top:27%;
+    line-height: 23px;
+    z-index: 100;
+    transition: 2s; 
+
+}
+
+.input-area{
+
+    position: absolute;
+    width: 26%;
+    left: 37%;
+    top:35%;
+    text-align: center;
+  
+
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+
+    font-size: 16px;
+    letter-spacing: 2px;
+    line-height: 23px;
+    z-index: 100;
+    transition: 2s; 
+    color:#23190f;
+
+
+}
+
+.inputLabel{
+    height: 10%;
+    margin-top:8%;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+}
+
+
+
+input{
+    width: 60%;
+    height: 24px;
+    background:none;
+
+    border:none;
+    border-bottom:2px solid rgb(230,230,230);
+    text-align: center;
+    font-size: 16px;
+    padding: 2px 0px;
+
+    color:#23190f;
+
+    transition:0.3s;
+
+}
+
+input:hover{
+    cursor: pointer;
+    border-bottom:2px solid white;
+
+}
+
+.input-desc{
+    height: 28px;
+    padding-top: 10px;
+
+}
+
+#submit{
+
+    position: absolute;
+    left:45%;
+    top:75%;
+
+
+    border:2px solid white;
+    border-radius: 10px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 10%;
+    height: 8%;
+    z-index: 100;
+
+    color:white;
+    font-size: 24px;
+    opacity: 0.4;
+
+    transition: 1s;
+
+}
+
+#submit:hover{
+    cursor: pointer;
+    opacity: 1;
+}
