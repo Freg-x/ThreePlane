@@ -8,7 +8,5 @@ demo ver1地址: [beatplane.freakx.net](beatplane.freakx.net)
 
 目前最高分14200
 
-参考教程：https://www.jianshu.com/p/92771817c73f
-
 
 
